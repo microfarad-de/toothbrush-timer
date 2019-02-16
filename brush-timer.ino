@@ -46,12 +46,23 @@
 #define POWER_BUTTON_PIN      12      // Pin that senses the power button state     
 #define LED_PIN               13      // LED pin 
 
+
+/*
+ * LED object
+ */
+LedClass Led;
+
 /*
  * Arduino initialization routine
  */
-void setup() {
+void setup () {
+  // Disable the watchdog in case of a reebot due to watchdog expiry
   MCUSR = 0;      // clear MCU status register
   wdt_disable (); // and disable watchdog
+
+  // Initialize the LED object
+  Led.initialize (LED_PIN);
+  Led.blink (-1, 100, 1900);
 
 }
 
@@ -59,7 +70,30 @@ void setup() {
 /*
  * Arduino main loop
  */
-void loop() {
-  // put your main code here, to run repeatedly:
+void loop () {
 
+  // Update the LED status
+  Led.loopHandler ();
+
+  // Send the CPU into sleep mode
+  powerSave();
+
+}
+
+
+
+/*
+ * Enter the power save mode
+ */
+void powerSave () {
+  power_all_disable ();                 // Turn off peripherals
+  power_timer0_enable ();               // Power on Timer 1
+  //set_sleep_mode (SLEEP_MODE_IDLE);   // Configure lowest sleep mode that keeps clk_IO for Timer 1
+  //set_sleep_mode (SLEEP_MODE_PWR_DOWN); // Configure lowest possible sleep mode
+  //cli ();
+  sleep_enable ();                      // Prepare for sleep
+  //sleep_bod_disable ();               // Disable brown-out detection (only for SLEEP_MODE_PWR_DOWN)
+  //sei ();
+  sleep_cpu ();                         // Send the CPU into seelp mode
+  sleep_disable ();                     // CPU will wake-up here
 }
