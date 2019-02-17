@@ -88,7 +88,7 @@ void loop () {
 void powerSave () {
   power_all_disable ();                 // Turn off peripherals
   power_timer0_enable ();               // Power on Timer 1
-  //set_sleep_mode (SLEEP_MODE_IDLE);   // Configure lowest sleep mode that keeps clk_IO for Timer 1
+  set_sleep_mode (SLEEP_MODE_IDLE);   // Configure lowest sleep mode that keeps clk_IO for Timer 1
   //set_sleep_mode (SLEEP_MODE_PWR_DOWN); // Configure lowest possible sleep mode
   //cli ();
   sleep_enable ();                      // Prepare for sleep
