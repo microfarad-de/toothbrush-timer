@@ -42,9 +42,28 @@
 /*
  * Pin assignment
  */
-#define POWER_CONTROL_PIN     11      // Pin that controls the power-on transistor
-#define POWER_BUTTON_PIN      12      // Pin that senses the power button state     
-#define LED_PIN               13      // LED pin 
+#define POWER_MOSFET_PIN     A2      // Pin that controls the power-on transistor
+#define POWER_BUTTON_PIN     A3      // Pin that senses the power button state    
+
+
+/*           
+ * LED pins:
+ * 
+ *           E   C
+ *    H              A
+ *       G      
+ *    I              B
+ *           F   D
+ */
+#define A_PIN   12
+#define B_PIN   7
+#define C_PIN   9
+#define D_PIN   6
+#define E_PIN   8
+#define F_PIN   5
+#define G_PIN   2
+#define H_PIN   4
+#define I_PIN   3 
 
 
 /*
@@ -61,7 +80,7 @@ void setup () {
   wdt_disable (); // and disable watchdog
 
   // Initialize the LED object
-  Led.initialize (LED_PIN);
+  Led.initialize (G_PIN);
   Led.blink (-1, 100, 1900);
 
 }
