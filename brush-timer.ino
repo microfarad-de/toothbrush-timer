@@ -1,8 +1,8 @@
 /*
  * Very Low Power Toothbrush Timer
  * 
- * This source file is part of the Nixie Clock Arduino firmware
- * found under http://www.github.com/microfarad-de/brush-timer
+ * This source file is part of the follwoing repository:
+ * http://www.github.com/microfarad-de/brush-timer
  * 
  * Please visit:
  *   http://www.microfarad.de
@@ -35,7 +35,6 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 #include <Arduino.h>
-#include "helper.h"
 
 
 
@@ -67,9 +66,25 @@
 
 
 /*
- * LED object
+ * Macros
  */
-LedClass Led;
+#define NUM_LEDS           9  // Total number of LEDs
+#define POWER_ON_DELAY     0  // Time duration in ms for pressing the power button until the system is powered on
+#define POWER_OFF_DELAY  800  // Time duration in ms for pressing the power button until the system is powered off
+#define TIMER_DURATION   60 //180  // Countdown timer duration in seconds
+#define BLINK_DURATION   100  // LED blink duration in ms
+
+
+/*
+ * Global variables structure
+ */
+struct {
+  uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN  };  // Array of LED pins
+  uint8_t  ledState[NUM_LEDS] = { LOW };  // LED power-on states
+  uint32_t secondsElapsed = 0;            // Countdown timer elapsed seconds
+} G;
+
+
 
 /*
  * Arduino initialization routine
@@ -79,9 +94,26 @@ void setup () {
   MCUSR = 0;      // clear MCU status register
   wdt_disable (); // and disable watchdog
 
-  // Initialize the LED object
-  Led.initialize (G_PIN);
-  Led.blink (-1, 100, 1900);
+  // Initialize I/O pins
+  pinMode (POWER_MOSFET_PIN, OUTPUT);
+  pinMode (POWER_BUTTON_PIN, INPUT_PULLUP);
+  for (uint8_t i = 0; i < NUM_LEDS; i++) {
+    pinMode (G.ledPin[i], OUTPUT);
+  }
+
+  // Turn off all HW peripherals except Timer 0
+  // Timer 0 is used for generating the interrupt for millis()
+  power_all_disable ();
+  power_timer0_enable ();
+
+  
+  // Enable watchdog interrupt, set to 1s (see Datasheet Section 15.9.2)
+  // The watchdog interrupt will wake-up the CPU from deep sleep once per second
+  // and will serve as the maine timekeeping clock source.
+  cli ();
+  WDTCSR |= _BV(WDCE) | _BV(WDE);
+  WDTCSR = _BV(WDIE) | _BV(WDP2) | _BV(WDP1); 
+  sei ();
 
 }
 
@@ -90,29 +122,227 @@ void setup () {
  * Arduino main loop
  */
 void loop () {
+  // Main state machine states
+  static enum { STATE_INIT, STATE_INIT_B, STATE_COUNTDOWN, STATE_COUNTDOWN_B, STATE_FINISH, STATE_DEEPSLEEP, STATE_SHUTDOWN } state = STATE_INIT;
+  static uint32_t buttonTs = 0;
+  static uint32_t blinkTs = 0;
+  uint32_t ts = millis ();
 
-  // Update the LED status
-  Led.loopHandler ();
+  
+  // Call the LED multiplexing routine
+  muxLeds ();
 
-  // Send the CPU into sleep mode
-  powerSave();
 
+  // Main state machine
+  switch (state) {
+
+    /*
+     * Initialization State
+     * Wait for the power button to be pressed long enough to power on the system
+     */
+    case STATE_INIT:
+      buttonTs = ts;
+      state = STATE_INIT_B;
+      
+    case STATE_INIT_B:
+      // Wait until the power button is pressed long enough for the system to power on
+      if ( digitalRead (POWER_BUTTON_PIN) == HIGH ) buttonTs = ts;
+
+      // Power on the system
+      if (ts - buttonTs > POWER_ON_DELAY) {
+        digitalWrite (POWER_MOSFET_PIN, HIGH);
+
+        state = STATE_COUNTDOWN;
+      }
+      
+      
+      
+      break;
+
+
+    /*
+     * Countdown Timer State
+     * Update the LED status every second LEDs
+     */
+    case STATE_COUNTDOWN:
+      blinkTs = ts;
+      state = STATE_COUNTDOWN_B;
+      
+    case STATE_COUNTDOWN_B:
+      G.ledState[0] = HIGH;
+      G.ledState[1] = HIGH;
+      
+      if (G.secondsElapsed >= TIMER_DURATION / 4) {
+        G.ledState[2] = HIGH;
+        G.ledState[3] = HIGH;
+      }
+      if (G.secondsElapsed >= 2 * TIMER_DURATION / 4) {
+        G.ledState[4] = HIGH;
+        G.ledState[5] = HIGH;           
+      }
+      if (G.secondsElapsed >= 3 * TIMER_DURATION / 4) {
+        G.ledState[6] = HIGH;
+      }
+      if (G.secondsElapsed >= TIMER_DURATION) {
+        ledState (LOW);
+        state = STATE_FINISH;      
+      }
+
+      // Wait until the power button is pressed long enough for the system to power off
+      if ( digitalRead (POWER_BUTTON_PIN) == HIGH ) buttonTs = ts;
+
+      // Skip to the finish state then power off
+      if (ts - buttonTs > POWER_OFF_DELAY) {
+        digitalWrite (POWER_MOSFET_PIN, HIGH);
+        state = STATE_FINISH;
+      }
+
+      // Blink duration elapsed - turn off all LEDs and go to deep sleep
+      if (ts - blinkTs > BLINK_DURATION) {
+        ledState (LOW);
+        state = STATE_DEEPSLEEP;
+      }
+
+      
+      lightSleep ();
+      
+      break;
+  
+
+    /*
+     * Finish State
+     * Execute final LED blinking sequence prior to shutdown
+     */
+    case STATE_FINISH:
+      if ( animate1 () ) {
+        state = STATE_SHUTDOWN;
+      }
+
+      break;
+
+
+    /*
+     * Deep Sleep State
+     * Power down the CPU and wait for the next watchdog interrupt
+     * Increment the seconds counter after every wake-up
+     */
+    case STATE_DEEPSLEEP:
+      deepSleep();
+      
+      G.secondsElapsed++;
+      
+      state = STATE_COUNTDOWN;
+      
+      break;
+
+
+    /*
+     * Shutdown State
+     * Turn the power off
+     */
+    case STATE_SHUTDOWN:
+      // Turn of the power supply
+      digitalWrite (POWER_MOSFET_PIN, LOW);
+      
+      // Stay here until power is off
+      while (1);       
+      
+      break;
+
+
+    default:
+      break;
+    
+  }
+
+}
+
+
+/*
+ * LED multiplexing routine
+ * Since all the LEDs share one common dropper resistor, they must be driven 
+ * via multiplexing. This means that the LEDs are sequentially activated
+ * fast enough to create the illusion that they are lit simultanously for the 
+ * human eye. This way we save ourselves 8 dropper resistors.
+ */
+void muxLeds () {
+  static uint8_t idx = 0;
+
+  digitalWrite (G.ledPin[idx], LOW);
+
+  idx ++;
+  if (idx >= NUM_LEDS) idx = 0;
+  
+  digitalWrite (G.ledPin[idx], G.ledState[idx]);
+  
+}
+
+
+/*
+ * Turna all LEDs on or off
+ */
+void ledState ( uint8_t state ) {
+  for (uint8_t i = 0; i < NUM_LEDS; i++) {
+    G.ledState[i] = state;   
+  }
 }
 
 
 
 /*
- * Enter the power save mode
+ * LED animation sequence
+ * Returns true when animation sequence is finished
  */
-void powerSave () {
-  power_all_disable ();                 // Turn off peripherals
-  power_timer0_enable ();               // Power on Timer 1
-  set_sleep_mode (SLEEP_MODE_IDLE);   // Configure lowest sleep mode that keeps clk_IO for Timer 1
-  //set_sleep_mode (SLEEP_MODE_PWR_DOWN); // Configure lowest possible sleep mode
-  //cli ();
+bool animate1 () {
+  static uint32_t blinkTs = 0;
+  static uint32_t count = 0;
+  static uint8_t state = HIGH;
+  uint32_t ts = millis ();
+
+  if (ts - blinkTs > 200) {
+    ledState (state);
+    state = !state;
+    blinkTs = ts;
+    count++;
+  }
+
+  if (count > 20) return true;
+  else            return false;
+}
+
+
+/*
+ * Send the CPU into light sleep mode
+ * The CPU will be waken-up by the 1ms millis() Timer 0 interrupt
+ */
+void lightSleep () {
+  set_sleep_mode (SLEEP_MODE_IDLE);     // Configure lowest sleep mode that keeps clk_IO for Timer 0
   sleep_enable ();                      // Prepare for sleep
-  //sleep_bod_disable ();               // Disable brown-out detection (only for SLEEP_MODE_PWR_DOWN)
-  //sei ();
   sleep_cpu ();                         // Send the CPU into seelp mode
   sleep_disable ();                     // CPU will wake-up here
+}
+
+
+
+/*
+ * Send the CPU into deep sleep mode
+ * The CPU will be waken-up by the 1s watchdog interrupt
+ */
+void deepSleep () {
+  set_sleep_mode (SLEEP_MODE_PWR_DOWN); // Configure lowest possible sleep mode
+  cli ();
+  sleep_enable ();                      // Prepare for sleep
+  sleep_bod_disable ();                 // Disable brown-out detection (only for SLEEP_MODE_PWR_DOWN)
+  sei ();
+  sleep_cpu ();                         // Send the CPU into seelp mode
+  sleep_disable ();                     // CPU will wake-up here
+}
+
+
+
+/*
+ * Watchdog interrupt service routine
+ */
+ISR (WDT_vect)  {
+  // Do nothing
 }
