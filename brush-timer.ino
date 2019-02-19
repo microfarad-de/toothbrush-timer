@@ -69,9 +69,8 @@
  * Macros
  */
 #define NUM_LEDS           9  // Total number of LEDs
-#define POWER_ON_DELAY     0  // Time duration in ms for pressing the power button until the system is powered on
-#define POWER_OFF_DELAY  800  // Time duration in ms for pressing the power button until the system is powered off
-#define TIMER_DURATION   60 //180  // Countdown timer duration in seconds
+#define POWER_OFF_DELAY    3  // Time duration in s for pressing the power button until the system is powered off
+#define TIMER_DURATION    20 //180  // Countdown timer duration in seconds
 #define BLINK_DURATION   100  // LED blink duration in ms
 
 
@@ -81,7 +80,7 @@
 struct {
   uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN  };  // Array of LED pins
   uint8_t  ledState[NUM_LEDS] = { LOW };  // LED power-on states
-  uint32_t secondsElapsed = 0;            // Countdown timer elapsed seconds
+  uint32_t secondsElapsed = 1;            // Countdown timer elapsed seconds
 } G;
 
 
@@ -123,9 +122,9 @@ void setup () {
  */
 void loop () {
   // Main state machine states
-  static enum { STATE_INIT, STATE_INIT_B, STATE_COUNTDOWN, STATE_COUNTDOWN_B, STATE_FINISH, STATE_DEEPSLEEP, STATE_SHUTDOWN } state = STATE_INIT;
-  static uint32_t buttonTs = 0;
+  static enum { STATE_INIT, STATE_COUNTDOWN, STATE_COUNTDOWN_B, STATE_FINISH, STATE_DEEPSLEEP, STATE_SHUTDOWN } state = STATE_INIT;
   static uint32_t blinkTs = 0;
+  static uint32_t buttonPressSecs = 0;
   uint32_t ts = millis ();
 
   
@@ -138,25 +137,14 @@ void loop () {
 
     /*
      * Initialization State
-     * Wait for the power button to be pressed long enough to power on the system
+     * Power on the system
      */
     case STATE_INIT:
-      buttonTs = ts;
-      state = STATE_INIT_B;
-      
-    case STATE_INIT_B:
-      // Wait until the power button is pressed long enough for the system to power on
-      if ( digitalRead (POWER_BUTTON_PIN) == HIGH ) buttonTs = ts;
-
       // Power on the system
-      if (ts - buttonTs > POWER_ON_DELAY) {
-        digitalWrite (POWER_MOSFET_PIN, HIGH);
+      digitalWrite (POWER_MOSFET_PIN, HIGH);
 
-        state = STATE_COUNTDOWN;
-      }
-      
-      
-      
+      state = STATE_COUNTDOWN;
+    
       break;
 
 
@@ -184,25 +172,16 @@ void loop () {
         G.ledState[6] = HIGH;
       }
       if (G.secondsElapsed >= TIMER_DURATION) {
-        ledState (LOW);
+        setLedStates (LOW, true);
         state = STATE_FINISH;      
       }
 
-      // Wait until the power button is pressed long enough for the system to power off
-      if ( digitalRead (POWER_BUTTON_PIN) == HIGH ) buttonTs = ts;
-
-      // Skip to the finish state then power off
-      if (ts - buttonTs > POWER_OFF_DELAY) {
-        digitalWrite (POWER_MOSFET_PIN, HIGH);
-        state = STATE_FINISH;
-      }
 
       // Blink duration elapsed - turn off all LEDs and go to deep sleep
       if (ts - blinkTs > BLINK_DURATION) {
-        ledState (LOW);
+        setLedStates (LOW, true);
         state = STATE_DEEPSLEEP;
       }
-
       
       lightSleep ();
       
@@ -215,8 +194,11 @@ void loop () {
      */
     case STATE_FINISH:
       if ( animate1 () ) {
+        setLedStates (LOW, true);
         state = STATE_SHUTDOWN;
       }
+
+      lightSleep ();
 
       break;
 
@@ -227,9 +209,22 @@ void loop () {
      * Increment the seconds counter after every wake-up
      */
     case STATE_DEEPSLEEP:
+      // Power down the CPU
       deepSleep();
-      
+      // Increment elapsed seconds upon wake-up 
       G.secondsElapsed++;
+
+      // Detect long power button press to power down the system
+      if (digitalRead (POWER_BUTTON_PIN) == LOW) {
+        buttonPressSecs++;
+        if (buttonPressSecs >= POWER_OFF_DELAY) {
+          state = STATE_FINISH;
+          break;
+        }
+      }
+      else {
+        buttonPressSecs = 0;                           
+      }
       
       state = STATE_COUNTDOWN;
       
@@ -241,7 +236,8 @@ void loop () {
      * Turn the power off
      */
     case STATE_SHUTDOWN:
-      // Turn of the power supply
+
+      // Turn off the power supply
       digitalWrite (POWER_MOSFET_PIN, LOW);
       
       // Stay here until power is off
@@ -281,9 +277,10 @@ void muxLeds () {
 /*
  * Turna all LEDs on or off
  */
-void ledState ( uint8_t state ) {
+void setLedStates ( uint8_t state, bool apply ) {
   for (uint8_t i = 0; i < NUM_LEDS; i++) {
-    G.ledState[i] = state;   
+    G.ledState[i] = state;
+    if (apply) digitalWrite (G.ledPin[i], state);   
   }
 }
 
@@ -299,14 +296,14 @@ bool animate1 () {
   static uint8_t state = HIGH;
   uint32_t ts = millis ();
 
-  if (ts - blinkTs > 200) {
-    ledState (state);
+  if ( (ts - blinkTs > 200) || (ts - blinkTs > 200) ){
+    setLedStates (state, false);
     state = !state;
     blinkTs = ts;
     count++;
   }
 
-  if (count > 20) return true;
+  if (count > 30) return true;
   else            return false;
 }
 
