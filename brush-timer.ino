@@ -70,7 +70,7 @@
  */
 #define NUM_LEDS           9  // Total number of LEDs
 #define POWER_OFF_DELAY    3  // Time duration in s for pressing the power button until the system is powered off
-#define TIMER_DURATION    20 //180  // Countdown timer duration in seconds
+#define TIMER_DURATION   180  // Countdown timer duration in seconds
 #define BLINK_DURATION   100  // LED blink duration in ms
 
 
