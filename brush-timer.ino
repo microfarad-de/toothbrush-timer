@@ -76,7 +76,8 @@
  * Analog pins can also work as digital I/O pins
  */
 #define POWER_MOSFET_PIN  A2  // Pin that controls the power-on FET transistor
-#define POWER_BUTTON_PIN  A3  // Pin that senses the power button state (active LOW)   
+#define POWER_BUTTON_PIN  A3  // Pin that senses the power button state (active LOW)
+#define RANDOM_SEED_APIN  A0  // Floating analog pin for random seed generation
 
 
 
@@ -106,6 +107,7 @@
  * Macros
  */
 #define NUM_LEDS                9  // Total number of LEDs
+#define NUM_ANIM                4  // Total number of LED animation sequences
 #define POWER_ON_DELAY        350  // Time duration in milliseconds for pressing the power button until the system is turned on
 #define POWER_OFF_DELAY         2  // Time duration in seconds for pressing the power button until the system is turned off
 #define TIMER_DURATION  (120 - 8)  // Countdown timer duration in seconds including the correction factor to compensate for the WDT inaccuracy
@@ -114,12 +116,22 @@
 
 
 /*
+ * LED Animation Function Prototypes
+ */
+bool animate1 (void);
+bool animate2 (void);
+bool animate3 (void);
+bool animate4 (void);
+
+
+/*
  * Global Variables
  */
 struct {
   uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN };  // Array of LED pins
-  uint8_t  ledState[NUM_LEDS] = { LOW };  // LED power-on states
-  uint32_t secondsElapsed     = 1;        // Countdown timer elapsed seconds
+  uint8_t  ledState[NUM_LEDS] = { LOW };                                // LED power-on states
+  bool (*animate[NUM_ANIM])(void) = { animate1, animate2, animate3, animate4 };   // Array of animation sequences
+  uint32_t secondsElapsed     = 1;                                      // Countdown timer elapsed seconds
 } G;
 
 
@@ -173,11 +185,12 @@ void setup () {
  * freeze the CPU and return within 1 millisecond and 1 second respectively.
  */
 void loop () {
-  static enum { STATE_INIT, STATE_INIT_B, STATE_COUNTDOWN, 
-      STATE_COUNTDOWN_B, STATE_DEEPSLEEP, STATE_ANIMATE, STATE_SHUTDOWN } state = STATE_INIT;  // Main state machine states
+  static enum { STATE_INIT, STATE_INIT_B, STATE_COUNTDOWN, STATE_COUNTDOWN_B, 
+      STATE_DEEPSLEEP, STATE_ANIMATE, STATE_ANIMATE_B, STATE_SHUTDOWN } state = STATE_INIT;  // Main state machine states
   static uint32_t blinkTs = 0;             // Timestamp for measuring the LED blink duration
   static uint32_t powerOnDelayTs = 0;      // Timestamp for measuring the power on delay
   static uint32_t buttonPressSecs = 0;     // Counts the seconds while the power button is pressed
+  static uint8_t animationIndex = 0;       // Index of the chosen animation sequence
   bool rv;                                 // General purpose variable
   uint32_t ts = millis ();                 // The current millisecond timestamp
 
@@ -291,9 +304,20 @@ void loop () {
      * Execute final LED anunation routine prior to shutdown
      */
     case STATE_ANIMATE:
+
+      // Choose a random animation
+      // A floating analog pin is used for generation the random seed for a true
+      // random number. The ADC must be shortly powered on for this purpose. 
+      power_adc_enable ();
+      randomSeed ( analogRead (RANDOM_SEED_APIN) );
+      power_adc_disable ();
+      animationIndex = random (NUM_ANIM);
+      state = STATE_ANIMATE_B;
+
+   case STATE_ANIMATE_B:
     
       // Call the animation routine
-      rv = animate ();
+      rv = (*G.animate[animationIndex]) ();
       
       // The animation routine returns true upon finish
       if (rv) {
@@ -366,13 +390,13 @@ void setLedStates ( uint8_t state, bool apply ) {
 
 
 /*
- * LED Animation Sequence
+ * LED Animation Sequence 1
  * 
  * Returns true when animation sequence is finished
  */
-bool animate () {
+bool animate1 () {
   static uint32_t blinkTs = 0;
-  static uint32_t count = 0;
+  static uint8_t count = 0;
   static uint8_t state = HIGH;
   uint32_t ts = millis ();
 
@@ -384,6 +408,103 @@ bool animate () {
   }
 
   if (count > 50) return true;
+  else            return false;
+}
+
+
+
+/*
+ * LED Animation Sequence 2
+ * 
+ * Returns true when animation sequence is finished
+ */
+bool animate2 () {
+  static uint32_t blinkTs = 0;
+  static uint8_t count = 0;
+  static uint8_t idx = 0;
+  uint32_t ts = millis ();
+
+  if (ts - blinkTs > 100){
+    setLedStates (LOW, true);
+    if      (idx == 0) G.ledState[1] = G.ledState[3] = HIGH;
+    else if (idx == 1) G.ledState[3] = G.ledState[5] = HIGH;
+    else if (idx == 2) G.ledState[5] = G.ledState[6] = HIGH;
+    else if (idx == 3) G.ledState[6] = G.ledState[8] = HIGH;
+    else if (idx == 4) G.ledState[8] = G.ledState[7] = HIGH;
+    else if (idx == 5) G.ledState[7] = G.ledState[6] = HIGH;
+    else if (idx == 6) G.ledState[6] = G.ledState[4] = HIGH;
+    else if (idx == 7) G.ledState[4] = G.ledState[2] = HIGH;
+    else if (idx == 8) G.ledState[2] = G.ledState[0] = HIGH;
+    else if (idx == 9) G.ledState[0] = G.ledState[1] = HIGH;
+    idx++;
+    if (idx > 9) idx = 0;
+    count++;
+    blinkTs = ts;
+  }
+
+  if (count > 100) return true;
+  else            return false;
+}
+
+
+
+/*
+ * LED Animation Sequence 3
+ * 
+ * Returns true when animation sequence is finished
+ */
+bool animate3 () {
+  static uint32_t blinkTs = 0;
+  static uint8_t count = 0;
+  static uint8_t idx = 0;
+  uint32_t ts = millis ();
+
+  if (ts - blinkTs > 100){ 
+    if      (idx == 0) G.ledState[0] = G.ledState[1] = HIGH;
+    else if (idx == 1) G.ledState[2] = G.ledState[3] = HIGH;
+    else if (idx == 2) G.ledState[4] = G.ledState[5] = HIGH;
+    else if (idx == 3) G.ledState[6] = HIGH;
+    else if (idx == 4) G.ledState[7] = G.ledState[8] = HIGH;
+    else if (idx >= 7) setLedStates (LOW, true);
+    idx++;
+    if (idx > 10) idx = 0;
+    count++;
+    blinkTs = ts;
+  }
+
+  if (count > 100) return true;
+  else            return false;
+}
+
+
+
+/*
+ * LED Animation Sequence 4
+ * 
+ * Returns true when animation sequence is finished
+ */
+bool animate4 () {
+  static uint32_t blinkTs = 0;
+  static uint8_t count = 0;
+  static uint8_t idx = 0;
+  uint32_t ts = millis ();
+
+  if (ts - blinkTs > 100){
+    setLedStates (LOW, true);
+    if      (idx == 0) G.ledState[0] = G.ledState[1] = HIGH;
+    else if (idx == 1) G.ledState[0] = G.ledState[1] = G.ledState[2] = G.ledState[3] = HIGH;
+    else if (idx == 2) G.ledState[2] = G.ledState[3] = G.ledState[4] = G.ledState[5] = HIGH;
+    else if (idx == 3) G.ledState[4] = G.ledState[5] = G.ledState[6] = HIGH;
+    else if (idx == 4) G.ledState[6] = G.ledState[7] = G.ledState[8] = HIGH;
+    else if (idx == 5) G.ledState[7] = G.ledState[8] = HIGH;
+    else if (idx == 6) ;
+    idx++;
+    if (idx > 6) idx = 0;
+    count++;
+    blinkTs = ts;
+  }
+
+  if (count > 100) return true;
   else            return false;
 }
 
