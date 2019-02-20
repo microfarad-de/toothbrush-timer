@@ -8,7 +8,7 @@
  * blink as time passes. An animation sequence is activated as soon as the recommended 
  * two minute tooth brushing duration elapses, then the system will power itself off.
  * 
- * The animation pattern is randomly selected from 4 different aimation routines.
+ * One of 4 different animation routines is selected each time the timer expires.
  * 
  * The device implements a soft power on circuit using a tactile switch and two 
  * FET transistors. Pressing the power button for aprroximately 2 seconds while the  
