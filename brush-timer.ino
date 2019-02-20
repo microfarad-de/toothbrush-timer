@@ -5,10 +5,9 @@
  * 
  * The device features 9 LEDs arranged in a "little fish" pattern. When turned on, 
  * the eyes of the fish will start to blink once per second. More and more LEDs begin to 
- * blink as time passes. An animation sequence is activated as soon as the recommended 
- * two minute tooth brushing duration elapses, then the system will power itself off.
- * 
- * One of 4 different animation routines is selected each time the timer expires.
+ * blink as time passes. One of 4 random animation sequences is activated as soon as the 
+ * recommended two minute tooth brushing duration elapses, then the system will power 
+ * itself off.
  * 
  * The device implements a soft power on circuit using a tactile switch and two 
  * FET transistors. Pressing the power button for aprroximately 2 seconds while the  
@@ -17,7 +16,7 @@
  * 
  * The device is designed to consume a very low current and is able to run on a single CR2025 
  * or similar 3V Lithium cell for thousands of cycles. The current consumption is around 100μA 
- * during the deep sleep phase and about 2mA when all the LEDs are on. The device consumes no 
+ * during the deep sleep phase and about 1mA when all the LEDs are on. The device consumes no 
  * current when the power is off.
  * 
  * In order to reduce the bill of material, all 9 LEDs share one common dropper resistor.
