@@ -16,7 +16,7 @@
  * 
  * The device is designed to consume a very low current and is able to run on a single CR2025 
  * or similar 3V Lithium cell for thousands of cycles. The current consumption is around 100μA 
- * during the deep sleep phase and about 1mA when all the LEDs are on. The device consumes no 
+ * during the deep sleep phase and about 1.5mA when all the LEDs are on. The device consumes no 
  * current when the power is off.
  * 
  * In order to reduce the bill of material, all 9 LEDs share one common dropper resistor.
