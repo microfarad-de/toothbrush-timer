@@ -5,7 +5,7 @@
  * 
  * The device features 9 LEDs arranged in a "little fish" pattern. When turned on, 
  * the eyes of the fish will start to blink once per second. More and more LEDs begin to 
- * blink as time passes. One of 4 random animation sequences is activated as soon as the 
+ * blink as time passes. One of few random animation sequences is activated as soon as the 
  * recommended two minute tooth brushing duration elapses, then the system will power 
  * itself off.
  * 
@@ -108,7 +108,7 @@
  * Macros
  */
 #define NUM_LEDS                9  // Total number of LEDs
-#define NUM_ANIM                4  // Total number of LED animation sequences
+#define NUM_ANIM                5  // Total number of LED animation sequences
 #define POWER_ON_DELAY        350  // Time duration in milliseconds for pressing the power button until the system is turned on
 #define POWER_OFF_DELAY         2  // Time duration in seconds for pressing the power button until the system is turned off
 #define TIMER_DURATION  (120 - 8)  // Countdown timer duration in seconds including the correction factor to compensate for the WDT inaccuracy
@@ -123,15 +123,16 @@ bool animate1 (void);
 bool animate2 (void);
 bool animate3 (void);
 bool animate4 (void);
+bool animate5 (void);
 
 
 /*
  * Global Variables
  */
 struct {
+  bool (*animate[NUM_ANIM])(void) = { animate1, animate2, animate3, animate4, animate5 };           // Array of animation sequences
   uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN };  // Array of LED pins
-  uint8_t  ledState[NUM_LEDS] = { LOW };                                // LED power-on states
-  bool (*animate[NUM_ANIM])(void) = { animate1, animate2, animate3, animate4 };   // Array of animation sequences
+  uint8_t  ledState[NUM_LEDS] = { LOW };                                // LED power-on states 
   uint32_t secondsElapsed     = 1;                                      // Countdown timer elapsed seconds
 } G;
 
@@ -304,17 +305,20 @@ void loop () {
      * Animation State
      * Execute final LED anunation routine prior to shutdown
      */
-    case STATE_ANIMATE:
+    case STATE_ANIMATE: {
+      uint16_t val, i;
 
       // Choose a random animation
       // A floating analog pin is used for generation the random seed for a true
       // random number. The ADC must be shortly powered on for this purpose. 
       power_adc_enable ();
-      randomSeed ( analogRead (RANDOM_SEED_APIN) );
+      for (i = 0; i < 20; i++) val += analogRead (RANDOM_SEED_APIN);
+      randomSeed (val);
       power_adc_disable ();
+      for (i = 0; i < val / 512; i++) random (NUM_ANIM);
       animationIndex = random (NUM_ANIM);
       state = STATE_ANIMATE_B;
-
+   }
    case STATE_ANIMATE_B:
     
       // Call the animation routine
@@ -401,7 +405,7 @@ bool animate1 () {
   static uint8_t state = HIGH;
   uint32_t ts = millis ();
 
-  if ( (ts - blinkTs > 250 && state == HIGH) || (ts - blinkTs > 150 && state == LOW) ){
+  if (ts - blinkTs > 200){
     setLedStates (state, false);
     state = !state;
     blinkTs = ts;
@@ -466,9 +470,9 @@ bool animate3 () {
     else if (idx == 2) G.ledState[4] = G.ledState[5] = HIGH;
     else if (idx == 3) G.ledState[6] = HIGH;
     else if (idx == 4) G.ledState[7] = G.ledState[8] = HIGH;
-    else if (idx >= 7) setLedStates (LOW, true);
+    else if (idx >= 8) setLedStates (LOW, true);
     idx++;
-    if (idx > 10) idx = 0;
+    if (idx > 11) idx = 0;
     count++;
     blinkTs = ts;
   }
@@ -485,6 +489,40 @@ bool animate3 () {
  * Returns true when animation sequence is finished
  */
 bool animate4 () {
+  static uint32_t blinkTs = 0;
+  static uint8_t count = 0;
+  static uint8_t idx = 0;
+  uint32_t ts = millis ();
+
+  if (ts - blinkTs > 100){ 
+    if      (idx == 0) G.ledState[7] = HIGH;
+    else if (idx == 1) G.ledState[6] = HIGH;
+    else if (idx == 2) G.ledState[4] = HIGH;
+    else if (idx == 3) G.ledState[2] = HIGH;
+    else if (idx == 4) G.ledState[0] = HIGH;
+    else if (idx == 5) G.ledState[1] = HIGH;
+    else if (idx == 6) G.ledState[3] = HIGH;
+    else if (idx == 7) G.ledState[5] = HIGH;
+    else if (idx == 8) G.ledState[8] = HIGH;
+    else if (idx >= 12) setLedStates (LOW, true);
+    idx++;
+    if (idx > 15) idx = 0;
+    count++;
+    blinkTs = ts;
+  }
+
+  if (count > 100) return true;
+  else            return false;
+}
+
+
+
+/*
+ * LED Animation Sequence 5
+ * 
+ * Returns true when animation sequence is finished
+ */
+bool animate5 () {
   static uint32_t blinkTs = 0;
   static uint8_t count = 0;
   static uint8_t idx = 0;
