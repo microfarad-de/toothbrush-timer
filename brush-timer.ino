@@ -308,6 +308,10 @@ void loop () {
     case STATE_ANIMATE: {
       uint16_t val, i;
 
+      // Enable watchdog timer to ensure that the battery does not get 
+      // drained if the CPU gets stuck
+      wdt_enable (WDTO_1S);
+
       // Choose a random animation
       // A floating analog pin is used for generation the random seed for a true
       // random number. The ADC must be shortly powered on for this purpose. 
@@ -329,6 +333,9 @@ void loop () {
         setLedStates (LOW, true);
         state = STATE_SHUTDOWN;
       }
+
+      // Reset the watchdog timer
+      wdt_reset ();
 
       break;
 
