@@ -10,8 +10,9 @@
  * itself off.
  * 
  * The device implements a soft power on circuit using a tactile switch and two 
- * FET transistors. Pressing the power button for aprroximately 2 seconds while the  
- * device is on will skip the countdown timer and directly activate the LED animation 
+ * FET transistors. Briefly pressing the power button will power up the system and initiate
+ * the timer sequence. Pressing the power button during aprroximately 2 seconds while the  
+ * device is on will skip the timer sequence and directly activate the LED animation 
  * sequence prior to powering down the system.
  * 
  * The device is designed to consume a very low current and is able to run on a single CR2025 
@@ -24,7 +25,7 @@
  * the LEDs glowing brighter than others. A multiplexing routine is used for sequentially 
  * turning on one LED at a time and doing this fast enough to create the illusion that they 
  * are simultaneously lit due the the persistance of the human vision.
- *
+ * 
  * This sketch has been implemented and tested on an ATMega328P based Arduino Pro Mini 
  * compatible board running on 3.3V/8MHz.
  * 
@@ -72,6 +73,20 @@
 
 
 
+//#define SERIAL_DEBUG              // Activate debug printing over RS232
+#define SERIAL_BAUD 115200          // Serial baud rate
+
+// use these macros for printing to serial port
+#ifdef SERIAL_DEBUG  
+  #define PRINT(...)   Serial.print   (__VA_ARGS__)
+  #define PRINTLN(...) Serial.println (__VA_ARGS__)
+#else
+  #define PRINT(...)
+  #define PRINTLN(...)
+#endif
+
+
+
 /*
  * Pin Assignment
  * Analog pins can also work as digital I/O pins
@@ -109,7 +124,7 @@
  */
 #define NUM_LEDS                9  // Total number of LEDs
 #define NUM_ANIM                5  // Total number of LED animation sequences
-#define POWER_ON_DELAY        350  // Time duration in milliseconds for pressing the power button until the system is turned on
+#define POWER_ON_DELAY        100  // Time duration in milliseconds for pressing the power button until the system is turned on
 #define POWER_OFF_DELAY         2  // Time duration in seconds for pressing the power button until the system is turned off
 #define TIMER_DURATION  (120 - 8)  // Countdown timer duration in seconds including the correction factor to compensate for the WDT inaccuracy
 #define BLINK_DURATION        100  // LED blink duration in milliseconds
@@ -146,6 +161,13 @@ void setup () {
   MCUSR = 0;       // Clear MCU status register
   wdt_disable ();  // Disable watchdog
 
+#ifdef SERIAL_DEBUG  
+  // initialize serial port
+  Serial.begin (SERIAL_BAUD);
+#endif
+
+  PRINTLN ("+ + +  T O O T H B R U S H  T I M E R  + + +");
+
   // Initialize I/O pins
   pinMode (POWER_MOSFET_PIN, OUTPUT);
   pinMode (POWER_BUTTON_PIN, INPUT_PULLUP);
@@ -157,14 +179,18 @@ void setup () {
   // Timer 0 is used for generating the millisecond interrupt for the millis() function
   power_all_disable ();
   power_timer0_enable ();
+#ifdef SERIAL_DEBUG  
+  power_usart0_enable ();
+#endif
 
-  
-  // Enable watchdog interrupt with a 1 second interval.
-  // The watchdog interrupt will wake-up the CPU from deep sleep once per second
-  // and will serve as the main clock source for timekeeping.
-  // The inaccuracy of the watchdog timer has been compensated within the TIMER_DURATION macro.
-  // Please refer to the ATmega328P datasheet 15.9.2. "WDTCSR – Watchdog Timer Control Register"
-  // for more information about configuring the WDT control register.
+  /*
+   * Enable watchdog interrupt with a 1 second interval.
+   * The watchdog interrupt will wake-up the CPU from deep sleep once per second
+   * and will serve as the main clock source for timekeeping.
+   * The inaccuracy of the watchdog timer has been compensated within the TIMER_DURATION macro.
+   * Please refer to the ATmega328P datasheet 15.9.2. "WDTCSR – Watchdog Timer Control Register"
+   * for more information about configuring the WDT control register.
+   */
   cli ();
   WDTCSR |= _BV(WDCE) | _BV(WDE);
   WDTCSR = _BV(WDIE) | _BV(WDP2) | _BV(WDP1); 
@@ -257,6 +283,10 @@ void loop () {
         G.ledState[6] = HIGH;
       }
       if (G.secondsElapsed >= TIMER_DURATION) {
+        G.ledState[7] = HIGH;
+        G.ledState[8] = HIGH;   
+      }
+      if (G.secondsElapsed >= TIMER_DURATION + 1) {
         // Timer expired - force all LEDs off and proceed to the animation routine
         setLedStates (LOW, true);
         state = STATE_ANIMATE;      
@@ -307,9 +337,21 @@ void loop () {
      */
     case STATE_ANIMATE: {
       uint16_t val, i;
-
-      // Enable watchdog timer to ensure that the battery does not get 
-      // drained if the CPU gets stuck
+      /*
+       * The animation phase will increase the current consumption which will result in a 
+       * battery voltage drop. This may cause the CPU to hang and fail to power down the system
+       * and subsequently drain the battery. This condition is referred-to as brownout.
+       * The ATmega328P has a built-in brownout detection cricuit that shall initiate a system
+       * reset as soon as the voltage drops below a certain threshold. The reset will ensure that 
+       * the power transistor pin is no longer high thus the system will be powered down. 
+       * The following line enables the watchdog timer (WDT) as an additional measure, in case 
+       * brownout detection has been deactivated by the fuse configuration. The WDT needs
+       * to be peridically reset by the main loop, failing to do so will cause the WDT to
+       * expire and subsequently perform a system reset. This ensures that the main loop needs
+       * to be constantly running in order to keep the system powered on.
+       * Enabling the WDT will disable the previously configured WDT interrupt, which is no
+       * longer used from this point onwards.
+       */
       wdt_enable (WDTO_1S);
 
       // Choose a random animation
@@ -319,8 +361,9 @@ void loop () {
       for (i = 0; i < 20; i++) val += analogRead (RANDOM_SEED_APIN);
       randomSeed (val);
       power_adc_disable ();
-      for (i = 0; i < val / 512; i++) random (NUM_ANIM);
+      for (i = 0; i < val % 16; i++) random (NUM_ANIM);
       animationIndex = random (NUM_ANIM);
+      
       state = STATE_ANIMATE_B;
    }
    case STATE_ANIMATE_B:
@@ -359,6 +402,54 @@ void loop () {
 
 }
 /* End Arduino main loop */
+
+
+
+/*
+ * Send the CPU Into Light Sleep Mode
+ * 
+ * The CPU will be waken-up within 1 millisecond by the Timer 0 millis() interrupt.
+ * 
+ * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more 
+ * information about the different sleep modes.
+ */
+void lightSleep () {
+  
+  set_sleep_mode (SLEEP_MODE_IDLE);  // Configure lowest sleep mode that keeps clk_IO for Timer 0
+  sleep_enable ();                   // Prepare for sleep
+  sleep_cpu ();                      // Send the CPU into seelp mode
+  sleep_disable ();                  // CPU will wake-up here
+}
+
+
+
+/*
+ * Send the CPU Into Deep Sleep Mode
+ * 
+ * The CPU will be waken-up within 1 second by the watchdog interrupt.
+ * 
+ * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more
+ * information about the different sleep modes.
+ */
+void deepSleep () {
+  
+  set_sleep_mode (SLEEP_MODE_PWR_DOWN);  // Configure lowest possible sleep mode
+  cli ();                                // Disable interrupts (recommended for the BOD disable step)
+  sleep_enable ();                       // Prepare for sleep
+  sleep_bod_disable ();                  // Disable brown-out detection (BOD) (not possible in SLEEP_IDLE_MODE)
+  sei ();                                // Enable interrupts
+  sleep_cpu ();                          // Send the CPU into seelp mode
+  sleep_disable ();                      // CPU will wake-up here
+}
+
+
+
+/*
+ * Watchdog Interrupt Service Routine
+ */
+ISR (WDT_vect)  {
+  // Do nothing
+}
 
 
 
@@ -455,7 +546,7 @@ bool animate2 () {
   }
 
   if (count > 100) return true;
-  else            return false;
+  else             return false;
 }
 
 
@@ -485,7 +576,7 @@ bool animate3 () {
   }
 
   if (count > 100) return true;
-  else            return false;
+  else             return false;
 }
 
 
@@ -519,7 +610,7 @@ bool animate4 () {
   }
 
   if (count > 100) return true;
-  else            return false;
+  else             return false;
 }
 
 
@@ -551,53 +642,5 @@ bool animate5 () {
   }
 
   if (count > 100) return true;
-  else            return false;
-}
-
-
-
-/*
- * Send the CPU Into Light Sleep Mode
- * 
- * The CPU will be waken-up within 1 millisecond by the Timer 0 millis() interrupt.
- * 
- * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more 
- * information about the different sleep modes.
- */
-void lightSleep () {
-  
-  set_sleep_mode (SLEEP_MODE_IDLE);  // Configure lowest sleep mode that keeps clk_IO for Timer 0
-  sleep_enable ();                   // Prepare for sleep
-  sleep_cpu ();                      // Send the CPU into seelp mode
-  sleep_disable ();                  // CPU will wake-up here
-}
-
-
-
-/*
- * Send the CPU Into Deep Sleep Mode
- * 
- * The CPU will be waken-up within 1 second by the watchdog interrupt.
- * 
- * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more
- * information about the different sleep modes.
- */
-void deepSleep () {
-  
-  set_sleep_mode (SLEEP_MODE_PWR_DOWN);  // Configure lowest possible sleep mode
-  cli ();                                // Disable interrupts (recommended for the BOD disable step)
-  sleep_enable ();                       // Prepare for sleep
-  sleep_bod_disable ();                  // Disable brown-out detection (BOD) (not possible in SLEEP_IDLE_MODE)
-  sei ();                                // Enable interrupts
-  sleep_cpu ();                          // Send the CPU into seelp mode
-  sleep_disable ();                      // CPU will wake-up here
-}
-
-
-
-/*
- * Watchdog Interrupt Service Routine
- */
-ISR (WDT_vect)  {
-  // Do nothing
+  else             return false;
 }
