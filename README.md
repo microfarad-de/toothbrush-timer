@@ -2,6 +2,9 @@
 
 This Arduino sketch that implements a funny "little fish" kids toothbrush timer.
 
+Unless stated otherwise within the source file headers, please feel free to use and distribute 
+this code under the *GNU General Public License v3.0*.
+
 ## Theory of Operation
 
 The device features 9 LEDs arranged in a "little fish" pattern. When turned on, 
