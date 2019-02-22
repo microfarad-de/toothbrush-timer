@@ -70,6 +70,7 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 #include <Arduino.h>
+#include <EEPROM.h>
 
 
 
@@ -128,6 +129,7 @@
 #define POWER_OFF_DELAY         2  // Time duration in seconds for pressing the power button until the system is turned off
 #define TIMER_DURATION  (120 - 8)  // Countdown timer duration in seconds including the correction factor to compensate for the WDT inaccuracy
 #define BLINK_DURATION        100  // LED blink duration in milliseconds
+#define EEPROM_ADDR             0  // EEPROM base address
 
 
 
@@ -147,8 +149,9 @@ bool animate5 (void);
 struct {
   bool (*animate[NUM_ANIM])(void) = { animate1, animate2, animate3, animate4, animate5 };           // Array of animation sequences
   uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN };  // Array of LED pins
-  uint8_t  ledState[NUM_LEDS] = { LOW };                                // LED power-on states 
-  uint32_t secondsElapsed     = 1;                                      // Countdown timer elapsed seconds
+  uint8_t  ledState[NUM_LEDS] = { LOW };  // LED power-on states 
+  uint32_t secondsElapsed     = 1;        // Countdown timer elapsed seconds
+  uint8_t  animationIndex;                // Index of the chosen animation sequence
 } G;
 
 
@@ -182,6 +185,10 @@ void setup () {
 #ifdef SERIAL_DEBUG  
   power_usart0_enable ();
 #endif
+
+  // Read and validate the last animation index from EEPROM
+  G.animationIndex = EEPROM.read (EEPROM_ADDR);
+  if (G.animationIndex >= NUM_ANIM) G.animationIndex = 0;
 
   /*
    * Enable watchdog interrupt with a 1 second interval.
@@ -218,7 +225,6 @@ void loop () {
   static uint32_t blinkTs = 0;             // Timestamp for measuring the LED blink duration
   static uint32_t powerOnDelayTs = 0;      // Timestamp for measuring the power on delay
   static uint32_t buttonPressSecs = 0;     // Counts the seconds while the power button is pressed
-  static uint8_t animationIndex = 0;       // Index of the chosen animation sequence
   bool rv;                                 // General purpose variable
   uint32_t ts = millis ();                 // The current millisecond timestamp
 
@@ -286,8 +292,10 @@ void loop () {
         G.ledState[7] = HIGH;
         G.ledState[8] = HIGH;   
       }
+      
+      // Timer expired - turn off all LEDs and proceed to the animation routine
       if (G.secondsElapsed >= TIMER_DURATION + 1) {
-        // Timer expired - force all LEDs off and proceed to the animation routine
+        
         setLedStates (LOW, true);
         state = STATE_ANIMATE;      
       }
@@ -337,39 +345,45 @@ void loop () {
      */
     case STATE_ANIMATE: {
       uint16_t val, i;
+      uint8_t lastIdx = G.animationIndex;
       /*
        * The animation phase will increase the current consumption which will result in a 
        * battery voltage drop. This may cause the CPU to hang and fail to power down the system
        * and subsequently drain the battery. This condition is referred-to as brownout.
        * The ATmega328P has a built-in brownout detection cricuit that shall initiate a system
        * reset as soon as the voltage drops below a certain threshold. The reset will ensure that 
-       * the power transistor pin is no longer high thus the system will be powered down. 
+       * the power transistor pin is no longer high, thus the system will be powered down. 
        * The following line enables the watchdog timer (WDT) as an additional measure, in case 
        * brownout detection has been deactivated by the fuse configuration. The WDT needs
        * to be peridically reset by the main loop, failing to do so will cause the WDT to
        * expire and subsequently perform a system reset. This ensures that the main loop needs
        * to be constantly running in order to keep the system powered on.
        * Enabling the WDT will disable the previously configured WDT interrupt, which is no
-       * longer used from this point onwards.
+       * longer needed from this point onwards.
        */
       wdt_enable (WDTO_1S);
-
-      // Choose a random animation
-      // A floating analog pin is used for generation the random seed for a true
-      // random number. The ADC must be shortly powered on for this purpose. 
+      
+      /* 
+       * The following code generates a random value that will be used as the index of the 
+       * animation sequence to be executed.
+       * The random noise from a floating (disconnected) analog input pin is used for generating 
+       * the random seed for the arduino random() function. The ADC iis shortly powered on, then 
+       * the result of several consecutive analog reads is accumulated and the ADC is disabled
+       * again in order to reduce power consumption.
+       */
       power_adc_enable ();
       for (i = 0; i < 20; i++) val += analogRead (RANDOM_SEED_APIN);
-      randomSeed (val);
       power_adc_disable ();
-      for (i = 0; i < val % 16; i++) random (NUM_ANIM);
-      animationIndex = random (NUM_ANIM);
+      randomSeed (val);
+      // Ensure that a different index is chosen every run
+      while (G.animationIndex == lastIdx) G.animationIndex = random (NUM_ANIM);
       
       state = STATE_ANIMATE_B;
    }
    case STATE_ANIMATE_B:
     
       // Call the animation routine
-      rv = (*G.animate[animationIndex]) ();
+      rv = (*G.animate[G.animationIndex]) ();
       
       // The animation routine returns true upon finish
       if (rv) {
@@ -388,6 +402,9 @@ void loop () {
      * Turn the power off
      */
     case STATE_SHUTDOWN:
+
+      // Remember the index of the last played animation
+      EEPROM.write (EEPROM_ADDR, G.animationIndex);
 
       // Turn off the power supply
       digitalWrite (POWER_MOSFET_PIN, LOW);
@@ -500,18 +517,29 @@ void setLedStates ( uint8_t state, bool apply ) {
 bool animate1 () {
   static uint32_t blinkTs = 0;
   static uint8_t count = 0;
-  static uint8_t state = HIGH;
+  static uint8_t idx = 0;
   uint32_t ts = millis ();
 
-  if (ts - blinkTs > 200){
-    setLedStates (state, false);
-    state = !state;
-    blinkTs = ts;
+  if (ts - blinkTs > 100){ 
+    
+    if      (idx ==  0) G.ledState[5] = HIGH;
+    else if (idx ==  1) G.ledState[2] = HIGH;
+    else if (idx ==  2) G.ledState[3] = HIGH;
+    else if (idx ==  3) G.ledState[7] = HIGH;
+    else if (idx ==  4) G.ledState[1] = HIGH;
+    else if (idx ==  5) G.ledState[6] = HIGH;
+    else if (idx ==  6) G.ledState[0] = HIGH;
+    else if (idx ==  7) G.ledState[4] = HIGH;
+    else if (idx ==  8) G.ledState[8] = HIGH;
+    else if (idx == 12) setLedStates (LOW, true);
+    idx++;
+    if (idx > 15) idx = 0;
     count++;
+    blinkTs = ts;
   }
 
-  if (count > 50) return true;
-  else            return false;
+  if (count > 100 && idx == 0) return true;
+  else                         return false;
 }
 
 
@@ -545,8 +573,8 @@ bool animate2 () {
     blinkTs = ts;
   }
 
-  if (count > 100) return true;
-  else             return false;
+  if (count > 100 && idx == 0) return true;
+  else                         return false;
 }
 
 
@@ -575,8 +603,8 @@ bool animate3 () {
     blinkTs = ts;
   }
 
-  if (count > 100) return true;
-  else             return false;
+  if (count > 100 && idx == 0) return true;
+  else                         return false;
 }
 
 
@@ -609,8 +637,8 @@ bool animate4 () {
     blinkTs = ts;
   }
 
-  if (count > 100) return true;
-  else             return false;
+  if (count > 100 && idx == 0) return true;
+  else                         return false;
 }
 
 
@@ -641,6 +669,6 @@ bool animate5 () {
     blinkTs = ts;
   }
 
-  if (count > 100) return true;
-  else             return false;
+  if (count > 100 && idx == 0) return true;
+  else                         return false;
 }
