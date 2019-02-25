@@ -376,7 +376,10 @@ void loop () {
       power_adc_disable ();
       randomSeed (val);
       // Ensure that a different index is chosen every run
-      while (G.animationIndex == lastIdx) G.animationIndex = random (NUM_ANIM);
+      // Randomize by repeatedly calling the random() function
+      for (i = 0; i < val % 16 || G.animationIndex == lastIdx; i++) {
+        G.animationIndex = random (NUM_ANIM);
+      }
       
       state = STATE_ANIMATE_B;
    }
