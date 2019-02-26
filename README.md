@@ -4,7 +4,7 @@
 <img src="https://raw.githubusercontent.com/microfarad-de/toothbrush-timer/master/doc/2019-02-25-211951.jpg" alt="drawing" width="400"/>
 </p>
 
-This Arduino sketch that implements a funny "little fish" kids toothbrush timer.
+This Arduino sketch that implements a funny "little fish" kids toothbrush timer. The detailed documentation of this project can be found under www.microfarad.de/toothbrush-timer .
 
 Unless stated otherwise within the source file headers, please feel free to use and distribute 
 this code under the *GNU General Public License v3.0*.
