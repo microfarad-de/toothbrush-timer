@@ -34,7 +34,7 @@ the LEDs glowing brighter than others. A multiplexing routine is used for sequen
 turning on one LED at a time and doing this fast enough to create the illusion that they 
 are simultaneously lit due the the persistence of the human vision.
 
-This sketch has been implemented and tested on an ATMega328P based Arduino Pro Mini 
+This sketch has been implemented and tested on an ATmega328P based Arduino Pro Mini 
 compatible board running on 3.3V/8MHz.
 
 It is recommended to activate the watchdog support on the Arduino bootloader
