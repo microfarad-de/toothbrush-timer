@@ -57,7 +57,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * Version: 1.0.0
+ * Version: 1.0.1
  * Date:    February 2019
  */
 #define VERSION_MAJOR 1  // Major version
