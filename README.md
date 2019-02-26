@@ -48,3 +48,11 @@ You can find the circuit diagram for this device under the follwoing link:
 
 https://github.com/microfarad-de/brush-timer/raw/master/doc/brush-timer-schematic.pdf
 
+## What Can Be Improved
+
+Power consumption could be further reduced by avoiding the use of SLEEP_MODE_IDLE and fully relying on SLEEP_MODE_PWR_DOWN instead. This will however disable Timer 0 thus the millis() function will no longer be usable. Consequently, all time measurements would have to be made using the watchdog timer interrupt which has a minimum configurable period of 16 milliseconds. In other words, the minimum measurable time duration will increase from 1ms to 16ms.
+
+LED multiplexing is the only functionality that relies on the 1ms time duration, as each led is lit up during 1ms per multiplexing cycle. Disabling LED multiplexing would require the addition of a dedicated dropper resistor for each of the LEDs, or accepting the compromise of the LED intensity changing depending on how many LEDs are being lit.
+
+
+
