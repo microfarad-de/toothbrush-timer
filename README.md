@@ -1,7 +1,7 @@
 # Very Low Power Kids Toothbrush Timer
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/microfarad-de/brush-timer/master/doc/2019-02-25-211951.jpg" alt="drawing" width="400"/>
+<img src="https://raw.githubusercontent.com/microfarad-de/toothbrush-timer/master/doc/2019-02-25-211951.jpg" alt="drawing" width="400"/>
 </p>
 
 This Arduino sketch that implements a funny "little fish" kids toothbrush timer.
@@ -46,7 +46,7 @@ the system to turn on.
 
 You can find the circuit diagram for this device under the follwoing link:
 
-https://github.com/microfarad-de/brush-timer/raw/master/doc/brush-timer-schematic.pdf
+https://github.com/microfarad-de/toothbrush-timer/raw/master/doc/toothbrush-timer-schematic.pdf
 
 ## What Can Be Improved
 
