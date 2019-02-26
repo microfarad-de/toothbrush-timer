@@ -13,7 +13,7 @@ this code under the *GNU General Public License v3.0*.
 
 The device features 9 LEDs arranged in a "little fish" pattern. When turned on, 
 the eyes of the fish will start to blink once per second. More and more LEDs begin to 
-blink as time passes. One of few random animation sequences is activated as soon as the 
+blink as time passes. One of several random animation sequences is activated as soon as the 
 recommended two minute tooth brushing duration elapses, then the system will power 
 itself off.
 
@@ -32,7 +32,7 @@ In order to reduce the bill of material, all 9 LEDs share one common dropper res
 Turning on multiple LEDs simultaneously is not recommended as it will result in some of 
 the LEDs glowing brighter than others. A multiplexing routine is used for sequentially 
 turning on one LED at a time and doing this fast enough to create the illusion that they 
-are simultaneously lit due the the persistance of the human vision.
+are simultaneously lit due the the persistence of the human vision.
 
 This sketch has been implemented and tested on an ATMega328P based Arduino Pro Mini 
 compatible board running on 3.3V/8MHz.
