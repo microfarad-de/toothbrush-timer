@@ -5,13 +5,13 @@
  * 
  * The device features 9 LEDs arranged in a "little fish" pattern. When turned on, 
  * the eyes of the fish will start to blink once per second. More and more LEDs begin to 
- * blink as time passes. One of few random animation sequences is activated as soon as the 
+ * blink as time passes. One of several random animation sequences is activated as soon as the 
  * recommended two minute tooth brushing duration elapses, then the system will power 
  * itself off.
  * 
  * The device implements a soft power on circuit using a tactile switch and two 
  * FET transistors. Briefly pressing the power button will power up the system and initiate
- * the timer sequence. Pressing the power button during aprroximately 2 seconds while the  
+ * the timer sequence. Pressing the power button during approximately 2 seconds while the  
  * device is on will skip the timer sequence and directly activate the LED animation 
  * sequence prior to powering down the system.
  * 
@@ -24,11 +24,11 @@
  * Turning on multiple LEDs simultaneously is not recommended as it will result in some of 
  * the LEDs glowing brighter than others. A multiplexing routine is used for sequentially 
  * turning on one LED at a time and doing this fast enough to create the illusion that they 
- * are simultaneously lit due the the persistance of the human vision.
- * 
+ * are simultaneously lit due the the persistence of the human vision.
+
  * This sketch has been implemented and tested on an ATMega328P based Arduino Pro Mini 
  * compatible board running on 3.3V/8MHz.
- * 
+
  * It is recommended to activate the watchdog support on the Arduino bootloader
  * by defining the WATCHDOG_MODS macro. This will reduce the bootloader's power-up 
  * delay, thus invalidating the need to hold the power button for around 2 seconds for 
