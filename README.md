@@ -19,7 +19,7 @@ itself off.
 
 The device implements a soft power on circuit using a tactile switch and two 
 FET transistors. Briefly pressing the power button will power up the system and initiate
-the timer sequence. Pressing the power button during aprroximately 2 seconds while the  
+the timer sequence. Pressing the power button during approximately 2 seconds while the  
 device is on will skip the timer sequence and directly activate the LED animation 
 sequence prior to powering down the system.
 
