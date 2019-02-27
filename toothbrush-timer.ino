@@ -16,8 +16,8 @@
  * sequence prior to powering down the system.
  * 
  * The device is designed to consume a very low current and is able to run on a single CR2025 
- * or similar 3V Lithium cell for thousands of cycles. The current consumption is around 100μA 
- * during the deep sleep phase and about 1.5mA when all the LEDs are on. The device consumes no 
+ * or similar 3V Lithium cell for thousands of cycles. The current consumption is around 10μA 
+ * during the deep sleep phase and around 1.2mA when all the LEDs are on. The device consumes no 
  * current when the power is off.
  * 
  * In order to reduce the bill of material, all 9 LEDs share one common dropper resistor.
@@ -25,14 +25,17 @@
  * the LEDs glowing brighter than others. A multiplexing routine is used for sequentially 
  * turning on one LED at a time and doing this fast enough to create the illusion that they 
  * are simultaneously lit due the the persistence of the human vision.
-
+ *
  * This sketch has been implemented and tested on an ATMega328P based Arduino Pro Mini 
  * compatible board running on 3.3V/8MHz.
-
+ *
  * It is recommended to activate the watchdog support on the Arduino bootloader
  * by defining the WATCHDOG_MODS macro. This will reduce the bootloader's power-up 
  * delay, thus invalidating the need to hold the power button for around 2 seconds for 
  * the system to turn on.
+ * 
+ * Arduino’s onbard 3.3V linear regulator as well as the power LED need to be unsoldered as 
+ * they would otherwise significantly increase the overall power consumption.
  * 
  * 
  * This source file is part of the follwoing repository:
@@ -57,12 +60,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * Version: 1.0.1
+ * Version: 1.1.0
  * Date:    February 2019
  */
 #define VERSION_MAJOR 1  // Major version
-#define VERSION_MINOR 0  // Minor version
-#define VERSION_MAINT 1  // Maintenance version
+#define VERSION_MINOR 1  // Minor version
+#define VERSION_MAINT 0  // Maintenance version
 
 
 
@@ -178,10 +181,9 @@ void setup () {
     pinMode (G.ledPin[i], OUTPUT);
   }
 
-  // Turn off all hardware peripherals except Timer 0
-  // Timer 0 is used for generating the millisecond interrupt for the millis() function
-  power_all_disable ();
-  power_timer0_enable ();
+  ADCSRA &= ~(1 << ADEN);  // Disable ADC
+  power_all_disable ();    // Turn off all hardware peripherals
+  power_timer0_enable ();  // Turn on Timer 0 is used for generating the millisecond interrupt for the millis() function
 #ifdef SERIAL_DEBUG  
   power_usart0_enable ();
 #endif
@@ -268,7 +270,7 @@ void loop () {
      * as the timer count increases
      */
     case STATE_COUNTDOWN:
-    
+      
       blinkTs = ts;
       state = STATE_COUNTDOWN_B;
       
@@ -372,8 +374,10 @@ void loop () {
        * again in order to reduce power consumption.
        */
       power_adc_enable ();
+      ADCSRA |= (1 << ADEN);
       for (i = 0; i < 20; i++) val += analogRead (RANDOM_SEED_APIN);
       power_adc_disable ();
+      ADCSRA &= ~(1 << ADEN);
       randomSeed (val);
       // Ensure that a different index is chosen every run
       // Randomize by repeatedly calling the random() function
@@ -436,7 +440,9 @@ void loop () {
 void lightSleep () {
   
   set_sleep_mode (SLEEP_MODE_IDLE);  // Configure lowest sleep mode that keeps clk_IO for Timer 0
+  cli ();                            // Disable interrupts
   sleep_enable ();                   // Prepare for sleep
+  sei ();                            // Enable interrupts
   sleep_cpu ();                      // Send the CPU into seelp mode
   sleep_disable ();                  // CPU will wake-up here
 }
@@ -454,7 +460,7 @@ void lightSleep () {
 void deepSleep () {
   
   set_sleep_mode (SLEEP_MODE_PWR_DOWN);  // Configure lowest possible sleep mode
-  cli ();                                // Disable interrupts (recommended for the BOD disable step)
+  cli ();                                // Disable interrupts
   sleep_enable ();                       // Prepare for sleep
   sleep_bod_disable ();                  // Disable brown-out detection (BOD) (not possible in SLEEP_IDLE_MODE)
   sei ();                                // Enable interrupts

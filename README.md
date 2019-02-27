@@ -24,8 +24,8 @@ device is on will skip the timer sequence and directly activate the LED animatio
 sequence prior to powering down the system.
 
 The device is designed to consume a very low current and is able to run on a single CR2025 
-or similar 3V Lithium cell for thousands of cycles. The current consumption is around 100μA 
-during the deep sleep phase and about 1.5mA when all the LEDs are on. The device consumes no 
+or similar 3V Lithium cell for thousands of cycles. The current consumption is around 10μA 
+during the deep sleep phase and around 1.2mA when all the LEDs are on. The device consumes no 
 current when the power is off.
 
 In order to reduce the bill of material, all 9 LEDs share one common dropper resistor.
@@ -41,6 +41,9 @@ It is recommended to activate the watchdog support on the Arduino bootloader
 by defining the WATCHDOG_MODS macro. This will reduce the bootloader's power-up 
 delay, thus invalidating the need to hold the power button for around 2 seconds for 
 the system to turn on.
+
+Arduino’s onbard 3.3V linear regulator as well as the power LED need to be unsoldered as 
+they would otherwise significantly increase the overall power consumption.
 
 ## Circuit Diagram
 
