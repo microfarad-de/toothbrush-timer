@@ -181,7 +181,7 @@ void setup () {
     pinMode (G.ledPin[i], OUTPUT);
   }
 
-  ADCSRA &= ~(1 << ADEN);  // Disable ADC
+  ADCSRA &= ~(1 << ADEN);  // Disable the ADC (this needs to be done first, otherwise the ADC will stay on!)
   power_all_disable ();    // Turn off all hardware peripherals
   power_timer0_enable ();  // Turn on Timer 0 is used for generating the millisecond interrupt for the millis() function
 #ifdef SERIAL_DEBUG  
