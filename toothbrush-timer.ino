@@ -181,7 +181,7 @@ void setup () {
     pinMode (G.ledPin[i], OUTPUT);
   }
 
-  ADCSRA &= ~(1 << ADEN);  // Disable the ADC (this needs to be done first, otherwise the ADC will stay on!)
+  ADCSRA &= ~_BV(ADEN);  // Disable the ADC (this needs to be done first, otherwise the ADC will stay on!)
   power_all_disable ();    // Turn off all hardware peripherals
   power_timer0_enable ();  // Turn on Timer 0 is used for generating the millisecond interrupt for the millis() function
 #ifdef SERIAL_DEBUG  
@@ -374,10 +374,10 @@ void loop () {
        * again in order to reduce power consumption.
        */
       power_adc_enable ();
-      ADCSRA |= (1 << ADEN);
-      for (i = 0; i < 20; i++) val += analogRead (RANDOM_SEED_APIN);
+      ADCSRA |= _BV(ADEN);
+      for (i = 0; i < 20; i++) val = analogRead (RANDOM_SEED_APIN);
+      ADCSRA &= ~_BV(ADEN);
       power_adc_disable ();
-      ADCSRA &= ~(1 << ADEN);
       randomSeed (val);
       // Ensure that a different index is chosen every run
       // Randomize by repeatedly calling the random() function
@@ -417,7 +417,9 @@ void loop () {
       digitalWrite (POWER_MOSFET_PIN, LOW);
       
       // Stay here until power is off
-      while (1);       
+      while (1) {
+        wdt_reset ();     
+      }
       
       break;
     
