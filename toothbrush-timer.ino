@@ -60,12 +60,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * Version: 1.2.0
- * Date:    March 2019
+ * Version: 1.2.1
+ * Date:    April 2019
  */
 #define VERSION_MAJOR 1  // Major version
 #define VERSION_MINOR 2  // Minor version
-#define VERSION_MAINT 0  // Maintenance version
+#define VERSION_MAINT 1  // Maintenance version
 
 
 
@@ -181,7 +181,7 @@ void setup () {
     pinMode (G.ledPin[i], OUTPUT);
   }
 
-  ADCSRA &= ~_BV(ADEN);  // Disable the ADC (this needs to be done first, otherwise the ADC will stay on!)
+  ADCSRA &= ~_BV(ADEN);    // Disable the ADC (this needs to be done first, otherwise the ADC will stay on! see ATmega328P datasheet Section 28.9.2)
   power_all_disable ();    // Turn off all hardware peripherals
   power_timer0_enable ();  // Turn on Timer 0 is used for generating the millisecond interrupt for the millis() function
 #ifdef SERIAL_DEBUG  
@@ -197,7 +197,7 @@ void setup () {
    * The watchdog interrupt will wake-up the CPU from deep sleep once per second
    * and will serve as the main clock source for timekeeping.
    * The inaccuracy of the watchdog timer has been compensated within the TIMER_DURATION macro.
-   * Please refer to the ATmega328P datasheet 15.9.2. "WDTCSR – Watchdog Timer Control Register"
+   * Please refer to the ATmega328P datasheet Section 15.9.2. "WDTCSR – Watchdog Timer Control Register"
    * for more information about configuring the WDT control register.
    */
   cli ();
@@ -373,11 +373,11 @@ void loop () {
        * the result of several consecutive analog reads is accumulated and the ADC is disabled
        * again in order to reduce power consumption.
        */
-      power_adc_enable ();
-      ADCSRA |= _BV(ADEN);
+      power_adc_enable ();   // Enable ADC power
+      ADCSRA |= _BV(ADEN);   // Enable ADC, see ATmega328P datasheet Section 28.9.2
       for (i = 0; i < 20; i++) val = analogRead (RANDOM_SEED_APIN);
-      ADCSRA &= ~_BV(ADEN);
-      power_adc_disable ();
+      ADCSRA &= ~_BV(ADEN);  // Disable ADC, see ATmega328P datasheet Section 28.9.2
+      power_adc_disable ();  // Disable ADC power
       randomSeed (val);
       // Ensure that a different index is chosen every run
       // Randomize by repeatedly calling the random() function
