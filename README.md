@@ -45,6 +45,11 @@ the system to turn on.
 Arduino’s onbard 3.3V linear regulator as well as the power LED need to be unsoldered as 
 they would otherwise significantly increase the overall power consumption.
 
+## Prerequisites
+
+* ATmega328P based Arduino Pro Mini, Arduino Nano or similar model
+* Custom bootloader from: https://github.com/microfarad-de/bootloader
+
 ## Circuit Diagram
 
 You can find the circuit diagram for this device under the follwoing link:
