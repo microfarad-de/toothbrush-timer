@@ -128,7 +128,7 @@
  */
 #define NUM_LEDS                9  // Total number of LEDs
 #define NUM_ANIM                5  // Total number of LED animation sequences
-#define POWER_ON_DELAY        100  // Time duration in milliseconds for pressing the power button until the system is turned on
+#define POWER_ON_DELAY          0  // Time duration in milliseconds for pressing the power button until the system is turned on
 #define POWER_OFF_DELAY         2  // Time duration in seconds for pressing the power button until the system is turned off
 #define TIMER_DURATION  (120 - 8)  // Countdown timer duration in seconds including the correction factor to compensate for the WDT inaccuracy
 #define BLINK_DURATION        100  // LED blink duration in milliseconds
@@ -150,7 +150,7 @@ bool animate5 (void);
  * Global Variables
  */
 struct {
-  bool (*animate[NUM_ANIM])(void) = { animate1, animate2, animate3, animate4, animate5 };           // Array of animation sequences
+  bool (*animate[NUM_ANIM])(void) = { animate2, animate1, animate3, animate4, animate5 };           // Array of animation sequences
   uint8_t  ledPin[NUM_LEDS]   = { A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, F_PIN, G_PIN, H_PIN, I_PIN };  // Array of LED pins
   uint8_t  ledState[NUM_LEDS] = { LOW };  // LED power-on states 
   uint32_t secondsElapsed     = 1;        // Countdown timer elapsed seconds
@@ -380,8 +380,7 @@ void loop () {
       power_adc_disable ();  // Disable ADC power
       randomSeed (val);
       // Ensure that a different index is chosen every run
-      // Randomize by repeatedly calling the random() function
-      for (i = 0; i < val % 16 || G.animationIndex == lastIdx; i++) {
+      while (G.animationIndex == lastIdx) {
         G.animationIndex = random (NUM_ANIM);
       }
       
