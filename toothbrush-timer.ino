@@ -60,12 +60,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * Version: 1.2.1
- * Date:    April 2019
+ * Version: 1.3.0
+ * Date:    June 2019
  */
 #define VERSION_MAJOR 1  // Major version
-#define VERSION_MINOR 2  // Minor version
-#define VERSION_MAINT 1  // Maintenance version
+#define VERSION_MINOR 3  // Minor version
+#define VERSION_MAINT 0  // Maintenance version
 
 
 
