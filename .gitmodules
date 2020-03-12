@@ -1,0 +1,3 @@
+[submodule "arduino-mk"]
+	path = arduino-mk
+	url = ssh://git@github.com/sudar/Arduino-Makefile

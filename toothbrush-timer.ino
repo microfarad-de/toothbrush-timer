@@ -137,13 +137,18 @@
 
 
 /*
- * LED Animation Function Prototypes
+ * Function Prototypes
  */
+void lightSleep (void);
+void deepSleep (void);
+void muxLeds (void);
+void setLedStates (uint8_t, bool);
 bool animate1 (void);
 bool animate2 (void);
 bool animate3 (void);
 bool animate4 (void);
 bool animate5 (void);
+
 
 
 /*
@@ -156,6 +161,8 @@ struct {
   uint32_t secondsElapsed     = 1;        // Countdown timer elapsed seconds
   uint8_t  animationIndex;                // Index of the chosen animation sequence
 } G;
+
+
 
 
 
